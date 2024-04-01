@@ -20,10 +20,10 @@ public class Server implements Runnable {
         this.socket.joinGroup(this.socketAddress, this.networkInterface);
     }
     public static void main(String[] args) throws IOException{
-            String incomingMessage = "";
-            Server server = new Server(Constants.DEFAULT_SERVER_ADDRESS);
-            Thread thread = new Thread(server);
-            thread.start();
+        String incomingMessage = "";
+        Server server = new Server(Constants.DEFAULT_SERVER_ADDRESS);
+        Thread thread = new Thread(server);
+        thread.start();
 
     }
 
@@ -85,4 +85,3 @@ public class Server implements Runnable {
     }
 
 }
-

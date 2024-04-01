@@ -1,7 +1,5 @@
 import java.io.IOException;
 import java.net.*;
-import java.util.HashMap;
-import java.util.Objects;
 import java.util.Scanner;
 
 public class Client implements Runnable {
