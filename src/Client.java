@@ -24,7 +24,6 @@ public class Client implements Runnable {
 
     public static void main(String[] args) throws IOException {
         Scanner sc = new Scanner(System.in);
-        String outgoingMessage = "";
         int topicClass = 0;
         int topic = 0;
         String name = null;
@@ -33,44 +32,15 @@ public class Client implements Runnable {
         System.out.print("Insira seu nome: ");
         name = sc.nextLine();
 
-        do{
-            try{
-                System.out.print("\n1. Serviço\n2. Pedidos\n" +
-                        "Digite o número do tipo do tópico que deseja entrar: ");
-                topicClass = Integer.parseInt(sc.nextLine());
-            } catch(Exception e){
-                continue;
-            }
-        }while(topicClass != 1 && topicClass != 2);
+        topicClass = Utils.pickTopicClass();
 
         if (topicClass == 1) {
-            do{
-                try{
-                    System.out.print("\n1. Bar\n2. Cozinha\n" +
-                            "Digite o número do serviço do produto que deseja oferecer: ");
-                    topic = Integer.parseInt(sc.nextLine());
-                } catch(Exception e){
-                    continue;
-                }
-            }while(topic != 1 && topic != 2);
+            topic = Utils.pickServiceTopic();
 
             serviceHandler(topic, name);
 
         } else {
-            do{
-                try{
-                    System.out.print("\n1. Entradas\n2. Pratos Principais\n3. Sobremesas\n" +
-                            "4. Bebidas\n5. Bebidas Alcoólicas\n" +
-                            "Digite o número do tipo do produto que deseja pedir: ");
-                    topic = Integer.parseInt(sc.nextLine());
-                } catch(Exception e){
-                    continue;
-                }
-            }while(topic != 1
-                    && topic != 2
-                    && topic != 3
-                    && topic != 4
-                    && topic != 5);
+            topic = Utils.pickOrderTopic();
 
             orderHandler(topic, name);
         }
@@ -214,8 +184,3 @@ public class Client implements Runnable {
         }
     }
 }
-
-// TODO
-// fazer thread de leitura fechar quando o cliente sair (De escrita já fecha)
-// Opção de sair -> fecha o socket e acaba o programa ou escolhe um novo tópico? escolhe um novo topico
-

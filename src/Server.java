@@ -20,7 +20,6 @@ public class Server implements Runnable {
         this.socket.joinGroup(this.socketAddress, this.networkInterface);
     }
     public static void main(String[] args) throws IOException{
-        String incomingMessage = "";
         Server server = new Server(Constants.DEFAULT_SERVER_ADDRESS);
         Thread thread = new Thread(server);
         thread.start();
@@ -29,7 +28,9 @@ public class Server implements Runnable {
 
     @Override
     public void run() {
+        String name = "";
         String body = "";
+        InetAddress address = null;
         do{
             try {
                 byte[] buffer = new byte[1024];
@@ -37,15 +38,13 @@ public class Server implements Runnable {
                 socket.receive(packet);
 
                 String incomingMessage = new String(packet.getData());
-                String name = "";
-                InetAddress address = null;
                 try {
-                     name = getNameFromMessage(incomingMessage);
+                    name = getNameFromMessage(incomingMessage);
                     body = getBodyFromMessage(incomingMessage);
                     address = getAddressFromMessage(incomingMessage);
                 } catch(ArrayIndexOutOfBoundsException ae){
-                    System.out.println(incomingMessage);
-                    System.out.println(ae.getMessage());
+                    System.out.println("Invalid Message: " + incomingMessage);
+                    System.out.println("Skipping...");
                 }
                 byte[] outgoingMessage = null;
                 if(body.equals("join-server")){
