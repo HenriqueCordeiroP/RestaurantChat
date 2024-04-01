@@ -1,71 +1,89 @@
 import java.io.IOException;
 import java.net.*;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Scanner;
+
 
 public class Server implements Runnable {
     private final MulticastSocket socket = new MulticastSocket(Constants.PORT);;
     private InetAddress address;
     private InetSocketAddress socketAddress;
+    private NetworkInterface networkInterface;
 
     private Server(String serverIp) throws IOException{
         this.address = InetAddress.getByName(serverIp);
         this.socketAddress = new InetSocketAddress(this.address, Constants.PORT);
+        this.networkInterface = NetworkInterface.getByInetAddress(this.address);
+        this.socket.joinGroup(this.socketAddress, this.networkInterface);
     }
     public static void main(String[] args) throws IOException{
-        System.out.print("Serviços:\n1. Bar\n2. Restaurante\n" +
-                "[Servidor] Digite o número do serviço que deseja fornecer: ");
-        Scanner sc = new Scanner(System.in);
+            String incomingMessage = "";
+            Server server = new Server(Constants.DEFAULT_SERVER_ADDRESS);
+            Thread thread = new Thread(server);
+            thread.start();
 
-        String serviceStr = sc.nextLine();
-        int service = Integer.parseInt(serviceStr);
-        if(service == 1){
-            Server server = new Server(Constants.BAR_ADDRESS);
-            Thread thread = new Thread(server);
-            thread.start();
-        } else if(service == 2) {
-            Server server = new Server(Constants.KITCHEN_ADDRESS);
-            Thread thread = new Thread(server);
-            thread.start();
-        }
     }
 
     @Override
     public void run() {
-        NetworkInterface networkInterface;
-        try {
-            networkInterface = NetworkInterface.getByInetAddress(this.address);
-            this.socket.joinGroup(this.socketAddress, networkInterface);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        String incomingMessage = null;
-        while(!Objects.equals(incomingMessage, "FINALIZAR SERVIDOR")){
+        String incomingMessage = "";
+        do{
             try {
                 byte[] buffer = new byte[1024];
-                DatagramPacket incomingPacket = new DatagramPacket(buffer, buffer.length);
-                this.socket.receive(incomingPacket);
-                incomingMessage = new String(incomingPacket.getData());
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
 
-                byte[] outgoingMessage = this.formatMessage(incomingMessage).getBytes();
+                incomingMessage = new String(packet.getData());
+
+                String name = getNameFromMessage(incomingMessage);
+                String body = getBodyFromMessage(incomingMessage);
+                InetAddress address = getAddressFromMessage(incomingMessage);
+                byte[] outgoingMessage = this.formatMessage(name, body).getBytes();
+                System.out.println(this.formatMessage(name, body));
                 DatagramPacket outgoingPacket = new DatagramPacket(
                         outgoingMessage,
                         outgoingMessage.length,
-                        this.address,
+                        address,
                         4321);
                 this.socket.send(outgoingPacket);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+        }while(!Objects.equals(incomingMessage, "FINALIZAR SERVIDOR"));
+    }
+
+    private String formatMessage(String name, String message){
+        String moment = new SimpleDateFormat("dd/MM/yyyy - HH:mm").format(new Date());
+        return "[" + moment + "] " + name + ": " + message;
+    }
+
+    private String getNameFromMessage(String message){
+        String delimiter = "&!%";
+        String[] parts = message.split(delimiter);
+        return parts[0];
+    }
+
+    private String getBodyFromMessage(String message){
+        String delimiter = "&!%";
+        String[] parts = message.split(delimiter);
+        return parts[1];
+    }
+
+    private InetAddress getAddressFromMessage(String message) throws UnknownHostException {
+        System.out.println(message);
+        String delimiter = "&!%";
+        String[] parts = message.trim().split(delimiter);
+        if (parts.length > 2) {
+            String ip = parts[2].trim();
+            return InetAddress.getByName(ip);
+        }
+        else {
+            throw new UnknownHostException("Invalid message format: " + message);
         }
     }
 
-    private String formatMessage(String message){
-        String moment = new SimpleDateFormat("dd/MM/yyyy - HH:mm").format(new Date());
-        return "[" + moment + "] " + message;
-    }
 }
 

@@ -1,68 +1,170 @@
 import java.io.IOException;
 import java.net.*;
+import java.util.HashMap;
 import java.util.Objects;
 import java.util.Scanner;
 
 public class Client implements Runnable {
     private final MulticastSocket socket = new MulticastSocket(4321);
-    private InetAddress address;
-    private InetSocketAddress socketAddress;
-    private NetworkInterface networkInterface;
+    public final InetAddress address = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
+    public String name;
+    public String targetAddress;
 
-    private Client(String serverIp) throws IOException {
-        this.address = InetAddress.getByName(serverIp);
-        this.socketAddress = new InetSocketAddress(this.address, Constants.PORT);
+    private Client(String serverIp, String name) throws IOException {
+        this.name = name;
+        this.targetAddress = serverIp;
+        InetSocketAddress socketAddress = new InetSocketAddress(this.address, Constants.PORT);
+        NetworkInterface networkInterface = NetworkInterface.getByInetAddress(this.address);
+        this.socket.joinGroup(socketAddress, networkInterface);
     }
 
     public static void main(String[] args) throws IOException {
         Scanner sc = new Scanner(System.in);
-        String outgoingMessage = null;
+        String outgoingMessage = "";
+        int topicClass = 0;
         int topic = 0;
         String name = null;
 
+
         System.out.print("Insira seu nome: ");
         name = sc.nextLine();
-        while(!outgoingMessage.equals("SAIR")) {
-            System.out.print("Tópicos:\n1. Entradas\n2. Pratos Principais\n3. Sobremesas\n" +
-                    "4. Bebidas\n5. Bebidas Alcoólicas\n" +
-                    "Digite o número do tipo do produto que deseja pedir: ");
-            topic = Integer.parseInt(sc.nextLine());
-            if (topic == 1){
-                Client client = new Client(Constants.BAR_ADDRESS);
-                Thread thread = new Thread(client);
+
+        do{
+            try{
+                System.out.print("\n1. Serviço\n2. Pedidos\n" +
+                        "Digite o número do tipo do tópico que deseja entrar: ");
+                topicClass = Integer.parseInt(sc.nextLine());
+            } catch(Exception e){
+                continue;
+            }
+        }while(topicClass != 1 && topicClass != 2);
+
+        if (topicClass == 1) {
+            do{
+                try{
+                    System.out.print("\n1. Bar\n2. Cozinha\n" +
+                            "Digite o número do serviço do produto que deseja oferecer: ");
+                    topic = Integer.parseInt(sc.nextLine());
+                } catch(Exception e){
+                    continue;
+                }
+            }while(topic != 1 && topic != 2);
+
+            serviceHandler(topic, name);
+
+        } else {
+            do{
+                try{
+                    System.out.print("\n1. Entradas\n2. Pratos Principais\n3. Sobremesas\n" +
+                            "4. Bebidas\n5. Bebidas Alcoólicas\n" +
+                            "Digite o número do tipo do produto que deseja pedir: ");
+                    topic = Integer.parseInt(sc.nextLine());
+                } catch(Exception e){
+                    continue;
+                }
+            }while(topic != 1
+                    && topic != 2
+                    && topic != 3
+                    && topic != 4
+                    && topic != 5);
+
+            orderHandler(topic, name);
+        }
+    }
+
+    private static void serviceHandler(int topic, String name) throws IOException {
+        Client client;
+        Thread thread;
+        switch(topic){
+            case 1:
+                client = new Client(Constants.BAR_ADDRESS, name);
+                thread = new Thread(client);
                 thread.start();
+                break;
+            case 2:
+                client = new Client(Constants.KITCHEN_ADDRESS, name);
+                thread = new Thread(client);
+                thread.start();
+                break;
+        }
+    }
+    private static void orderHandler(int topic, String name) throws IOException {
+        Client client;
+        Thread thread;
+        switch(topic){
+            case 1: case 2: case 3:
+                client = new Client(Constants.KITCHEN_ADDRESS, name);
+                thread = new Thread(client);
+                thread.start();
+                break;
+            case 4: case 5:
+                client = new Client(Constants.BAR_ADDRESS, name);
+                thread = new Thread(client);
+                thread.start();
+                break;
+        }
+    }
+
+    @Override
+    public void run() {
+        Thread receiverThread = new Thread(new Receiver());
+        Thread senderThread = new Thread(new Sender(this));
+        receiverThread.start();
+        senderThread.start();
+        try {
+            receiverThread.join();
+            senderThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class Receiver implements Runnable {
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    byte[] buffer = new byte[1024];
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                    socket.receive(packet);
+                    String incomingMessage = new String(packet.getData());
+                    System.out.println("\n" + incomingMessage);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
-    @Override
-    public void run() {
-        NetworkInterface networkInterface;
-        try {
-            networkInterface = NetworkInterface.getByInetAddress(this.address);
-            this.socket.joinGroup(this.socketAddress, networkInterface);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+    private class Sender implements Runnable {
+        Client client;
+
+        public Sender(Client client){
+            this.client = client;
         }
 
-        String incomingMessage = null;
-        while(!Objects.equals(incomingMessage, "FINALIZAR SERVIDOR")){
+        @Override
+        public void run() {
             try {
-                byte[] buffer = new byte[1024];
-                DatagramPacket incomingPacket = new DatagramPacket(buffer, buffer.length);
-                this.socket.receive(incomingPacket);
-                incomingMessage = new String(incomingPacket.getData());
-
-                byte[] outgoingMessage = this.formatMessage(incomingMessage).getBytes();
-                DatagramPacket outgoingPacket = new DatagramPacket(
-                        outgoingMessage,
-                        outgoingMessage.length,
-                        this.address,
-                        4321);
-                this.socket.send(outgoingPacket);
-                System.out.println(incomingMessage);
+                Scanner scanner = new Scanner(System.in);
+                while (true) {
+                    System.out.println("\nDigite sua mensagem: ");
+                    String message = scanner.nextLine();
+                    message = client.name + "&!%" + message + "&!%" + client.targetAddress;
+                    byte[] messageBytes = message.getBytes();
+                    DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.address, Constants.PORT);
+                    socket.send(packet);
+                }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
             }
         }
     }
 }
+
+// TODO
+// cliente receber mensagens
+// servidor avisar que cliente entrou
+// Opção de sair -> fecha o socket e acaba o programa ou escolhe um novo tópico? escolhe um novo topico
+
+
