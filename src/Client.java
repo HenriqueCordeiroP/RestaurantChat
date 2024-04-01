@@ -3,13 +3,23 @@ import java.net.*;
 import java.util.Scanner;
 
 public class Client implements Runnable {
+    private final MulticastSocket socket = new MulticastSocket(Constants.PORT);
     public final InetAddress defaultAddress = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
     public String name;
     public String targetAddress;
+    private boolean active = true;
 
     private Client(String serverIp, String name) throws IOException {
         this.name = name;
         this.targetAddress = serverIp;
+    }
+
+    public synchronized boolean isActive() {
+        return active;
+    }
+
+    public synchronized void setActive(boolean active) {
+        this.active = active;
     }
 
     public static void main(String[] args) throws IOException {
@@ -114,33 +124,36 @@ public class Client implements Runnable {
         try {
             receiverThread.join();
             senderThread.join();
+            System.out.println("Volte sempre :)");
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
     private class Receiver implements Runnable {
-        private final MulticastSocket socket = new MulticastSocket(Constants.PORT);
+        Client client;
+
         public Receiver(Client client) throws IOException {
+            this.client = client;
             InetAddress address = InetAddress.getByName(client.targetAddress);
             InetSocketAddress socketAddress = new InetSocketAddress(address, Constants.PORT);
             NetworkInterface networkInterface = NetworkInterface.getByInetAddress(address);
-            this.socket.joinGroup(socketAddress, networkInterface);
+            client.socket.joinGroup(socketAddress, networkInterface);
         }
 
         @Override
         public void run() {
-            try {
-                while (true) {
-                    byte[] buffer = new byte[1024];
-                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                    socket.receive(packet);
-                    String incomingMessage = new String(packet.getData());
-                    System.out.println("\n" + incomingMessage);
+                try {
+                    while (client.isActive()) {
+                        byte[] buffer = new byte[1024];
+                        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                        socket.receive(packet);
+                        String incomingMessage = new String(packet.getData());
+                        System.out.println("\n" + incomingMessage);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -161,32 +174,41 @@ public class Client implements Runnable {
             try {
                 joinServer(client);
                 Scanner scanner = new Scanner(System.in);
-                while (true) {
+
+                while (client.isActive()) {
                     System.out.print("\nDigite sua mensagem: ");
                     String message = scanner.nextLine();
                     if(message.equals("sair")){
-                        message =  client.name + "&!%" + "leave-server" + "&!%" + client.targetAddress;;
+                        leaveServer(client);
+                        deactivateClient(client);
+                    } else if(message.equals("FINALIZAR SERVIDOR")){
+                        deactivateClient(client);
                         sendMessage(message, client);
-                        break;
-                    } else {
-                        message = client.name + "&!%" + message + "&!%" + client.targetAddress;
+                    }
+                    else if(!message.equals("&!%")){
                         sendMessage(message, client);
                     }
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
 
         private void joinServer(Client client) throws IOException {
-            String message = client.name + "&!%" + "join-server" + "&!%" + client.targetAddress;
-            byte[] messageBytes = message.getBytes();
-            DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.defaultAddress, Constants.PORT);
-            socket.send(packet);
+            sendMessage("join-server", client);
+        }
+
+        private void leaveServer(Client client) throws IOException{
+            sendMessage("leave-server", client);
+        }
+
+        private void deactivateClient(Client client){
+            client.setActive(false);
         }
 
         private void sendMessage(String message, Client client) throws IOException {
-            byte[] messageBytes = message.getBytes();
+            String outgoingMessage =  client.name + "&!%" + message + "&!%" + client.targetAddress;
+            byte[] messageBytes = outgoingMessage.getBytes();
             DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.defaultAddress, Constants.PORT);
             socket.send(packet);
         }
@@ -195,6 +217,5 @@ public class Client implements Runnable {
 
 // TODO
 // fazer thread de leitura fechar quando o cliente sair (De escrita já fecha)
-// 
 // Opção de sair -> fecha o socket e acaba o programa ou escolhe um novo tópico? escolhe um novo topico
 

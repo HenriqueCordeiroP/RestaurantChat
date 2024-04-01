@@ -37,10 +37,16 @@ public class Server implements Runnable {
                 socket.receive(packet);
 
                 String incomingMessage = new String(packet.getData());
-
-                String name = getNameFromMessage(incomingMessage);
-                body = getBodyFromMessage(incomingMessage);
-                InetAddress address = getAddressFromMessage(incomingMessage);
+                String name = "";
+                InetAddress address = null;
+                try {
+                     name = getNameFromMessage(incomingMessage);
+                    body = getBodyFromMessage(incomingMessage);
+                    address = getAddressFromMessage(incomingMessage);
+                } catch(ArrayIndexOutOfBoundsException ae){
+                    System.out.println(incomingMessage);
+                    System.out.println(ae.getMessage());
+                }
                 byte[] outgoingMessage = null;
                 if(body.equals("join-server")){
                     outgoingMessage = this.formatMessage(name, "conectou ao servidor").getBytes();
