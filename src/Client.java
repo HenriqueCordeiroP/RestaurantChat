@@ -6,16 +6,13 @@ import java.util.Scanner;
 
 public class Client implements Runnable {
     private final MulticastSocket socket = new MulticastSocket(4321);
-    public final InetAddress address = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
+    public final InetAddress defaultAddress = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
     public String name;
     public String targetAddress;
 
     private Client(String serverIp, String name) throws IOException {
         this.name = name;
         this.targetAddress = serverIp;
-        InetSocketAddress socketAddress = new InetSocketAddress(this.address, Constants.PORT);
-        NetworkInterface networkInterface = NetworkInterface.getByInetAddress(this.address);
-        this.socket.joinGroup(socketAddress, networkInterface);
     }
 
     public static void main(String[] args) throws IOException {
@@ -107,8 +104,14 @@ public class Client implements Runnable {
 
     @Override
     public void run() {
-        Thread receiverThread = new Thread(new Receiver());
-        Thread senderThread = new Thread(new Sender(this));
+        Thread receiverThread = null;
+        Thread senderThread = null;
+        try {
+            receiverThread = new Thread(new Receiver(this));
+            senderThread = new Thread(new Sender(this));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         receiverThread.start();
         senderThread.start();
         try {
@@ -120,6 +123,13 @@ public class Client implements Runnable {
     }
 
     private class Receiver implements Runnable {
+        public Receiver(Client client) throws IOException {
+            InetAddress address = InetAddress.getByName(client.targetAddress);
+            InetSocketAddress socketAddress = new InetSocketAddress(address, Constants.PORT);
+            NetworkInterface networkInterface = NetworkInterface.getByInetAddress(address);
+            client.socket.joinGroup(socketAddress, networkInterface);
+        }
+
         @Override
         public void run() {
             try {
@@ -139,8 +149,12 @@ public class Client implements Runnable {
     private class Sender implements Runnable {
         Client client;
 
-        public Sender(Client client){
+        public Sender(Client client) throws IOException {
             this.client = client;
+            InetAddress defaultAddress = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
+            InetSocketAddress socketAddress = new InetSocketAddress(client.defaultAddress, Constants.PORT);
+            NetworkInterface networkInterface = NetworkInterface.getByInetAddress(client.defaultAddress);
+            client.socket.joinGroup(socketAddress, networkInterface);
         }
 
         @Override
@@ -152,7 +166,7 @@ public class Client implements Runnable {
                     String message = scanner.nextLine();
                     message = client.name + "&!%" + message + "&!%" + client.targetAddress;
                     byte[] messageBytes = message.getBytes();
-                    DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.address, Constants.PORT);
+                    DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.defaultAddress, Constants.PORT);
                     socket.send(packet);
                 }
             } catch (IOException e) {
@@ -163,8 +177,8 @@ public class Client implements Runnable {
 }
 
 // TODO
-// cliente receber mensagens
-// servidor avisar que cliente entrou
+// servidor avisar que cliente entrou e saiu
+    // on enter: pinga o server / on exit: pinga o server
 // Opção de sair -> fecha o socket e acaba o programa ou escolhe um novo tópico? escolhe um novo topico
 
 

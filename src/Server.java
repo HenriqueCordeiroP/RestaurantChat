@@ -29,20 +29,19 @@ public class Server implements Runnable {
 
     @Override
     public void run() {
-        String incomingMessage = "";
+        String body = "";
         do{
             try {
                 byte[] buffer = new byte[1024];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                incomingMessage = new String(packet.getData());
+                String incomingMessage = new String(packet.getData());
 
                 String name = getNameFromMessage(incomingMessage);
-                String body = getBodyFromMessage(incomingMessage);
+                body = getBodyFromMessage(incomingMessage);
                 InetAddress address = getAddressFromMessage(incomingMessage);
                 byte[] outgoingMessage = this.formatMessage(name, body).getBytes();
-                System.out.println(this.formatMessage(name, body));
                 DatagramPacket outgoingPacket = new DatagramPacket(
                         outgoingMessage,
                         outgoingMessage.length,
@@ -52,7 +51,7 @@ public class Server implements Runnable {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }while(!Objects.equals(incomingMessage, "FINALIZAR SERVIDOR"));
+        }while(!Objects.equals(body, "FINALIZAR SERVIDOR"));
     }
 
     private String formatMessage(String name, String message){
