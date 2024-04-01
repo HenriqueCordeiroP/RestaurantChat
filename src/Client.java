@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.Scanner;
 
 public class Client implements Runnable {
-    private final MulticastSocket socket = new MulticastSocket(4321);
     public final InetAddress defaultAddress = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
     public String name;
     public String targetAddress;
@@ -121,11 +120,12 @@ public class Client implements Runnable {
     }
 
     private class Receiver implements Runnable {
+        private final MulticastSocket socket = new MulticastSocket(Constants.PORT);
         public Receiver(Client client) throws IOException {
             InetAddress address = InetAddress.getByName(client.targetAddress);
             InetSocketAddress socketAddress = new InetSocketAddress(address, Constants.PORT);
             NetworkInterface networkInterface = NetworkInterface.getByInetAddress(address);
-            client.socket.joinGroup(socketAddress, networkInterface);
+            this.socket.joinGroup(socketAddress, networkInterface);
         }
 
         @Override
@@ -145,6 +145,7 @@ public class Client implements Runnable {
     }
 
     private class Sender implements Runnable {
+        private final MulticastSocket socket = new MulticastSocket(Constants.PORT);
         Client client;
 
         public Sender(Client client) throws IOException {
@@ -152,31 +153,48 @@ public class Client implements Runnable {
             InetAddress defaultAddress = InetAddress.getByName(Constants.DEFAULT_SERVER_ADDRESS);
             InetSocketAddress socketAddress = new InetSocketAddress(client.defaultAddress, Constants.PORT);
             NetworkInterface networkInterface = NetworkInterface.getByInetAddress(client.defaultAddress);
-            client.socket.joinGroup(socketAddress, networkInterface);
+            this.socket.joinGroup(socketAddress, networkInterface);
         }
 
         @Override
         public void run() {
             try {
+                joinServer(client);
                 Scanner scanner = new Scanner(System.in);
                 while (true) {
-                    System.out.println("\nDigite sua mensagem: ");
+                    System.out.print("\nDigite sua mensagem: ");
                     String message = scanner.nextLine();
-                    message = client.name + "&!%" + message + "&!%" + client.targetAddress;
-                    byte[] messageBytes = message.getBytes();
-                    DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.defaultAddress, Constants.PORT);
-                    socket.send(packet);
+                    if(message.equals("sair")){
+                        message =  client.name + "&!%" + "leave-server" + "&!%" + client.targetAddress;;
+                        sendMessage(message, client);
+                        break;
+                    } else {
+                        message = client.name + "&!%" + message + "&!%" + client.targetAddress;
+                        sendMessage(message, client);
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+
+        private void joinServer(Client client) throws IOException {
+            String message = client.name + "&!%" + "join-server" + "&!%" + client.targetAddress;
+            byte[] messageBytes = message.getBytes();
+            DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.defaultAddress, Constants.PORT);
+            socket.send(packet);
+        }
+
+        private void sendMessage(String message, Client client) throws IOException {
+            byte[] messageBytes = message.getBytes();
+            DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, client.defaultAddress, Constants.PORT);
+            socket.send(packet);
+        }
     }
 }
 
 // TODO
-// servidor avisar que cliente entrou e saiu
-    // on enter: pinga o server / on exit: pinga o server
+// fazer thread de leitura fechar quando o cliente sair (De escrita já fecha)
+// 
 // Opção de sair -> fecha o socket e acaba o programa ou escolhe um novo tópico? escolhe um novo topico
-
 

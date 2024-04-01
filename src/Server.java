@@ -41,13 +41,18 @@ public class Server implements Runnable {
                 String name = getNameFromMessage(incomingMessage);
                 body = getBodyFromMessage(incomingMessage);
                 InetAddress address = getAddressFromMessage(incomingMessage);
-                byte[] outgoingMessage = this.formatMessage(name, body).getBytes();
-                DatagramPacket outgoingPacket = new DatagramPacket(
-                        outgoingMessage,
-                        outgoingMessage.length,
-                        address,
-                        4321);
-                this.socket.send(outgoingPacket);
+                byte[] outgoingMessage = null;
+                if(body.equals("join-server")){
+                    outgoingMessage = this.formatMessage(name, "conectou ao servidor").getBytes();
+                } else if(body.equals("leave-server")){
+                    outgoingMessage = this.formatMessage(name, "desconectou do servidor").getBytes();
+                } else if(body.equals("FINALIZAR SERVIDOR")){
+                    outgoingMessage = this.formatMessage(name, "finalizou o servidor").getBytes();
+                } else {
+                    outgoingMessage = this.formatMessage(name, body).getBytes();
+                }
+                forwardMessage(outgoingMessage, address);
+
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -72,7 +77,6 @@ public class Server implements Runnable {
     }
 
     private InetAddress getAddressFromMessage(String message) throws UnknownHostException {
-        System.out.println(message);
         String delimiter = "&!%";
         String[] parts = message.trim().split(delimiter);
         if (parts.length > 2) {
@@ -84,4 +88,12 @@ public class Server implements Runnable {
         }
     }
 
+    private void forwardMessage(byte[] message, InetAddress address) throws IOException {
+        DatagramPacket outgoingPacket = new DatagramPacket(
+                message,
+                message.length,
+                address,
+                Constants.PORT);
+        this.socket.send(outgoingPacket);
+    }
 }
