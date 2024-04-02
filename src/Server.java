@@ -49,12 +49,16 @@ public class Server implements Runnable {
                 byte[] outgoingMessage = null;
                 if(body.equals("join-server")){
                     outgoingMessage = this.formatMessage(name, "conectou ao servidor").getBytes();
+                    System.out.println("[CONNECT] " + name + " joined " + getAddressString(body));
                 } else if(body.equals("leave-server")){
                     outgoingMessage = this.formatMessage(name, "desconectou do servidor").getBytes();
+                    System.out.println("[DISCONNECT] " + name + " left " + getAddressString(body));
                 } else if(body.equals("FINALIZAR SERVIDOR")){
                     outgoingMessage = this.formatMessage(name, "finalizou o servidor").getBytes();
+                    System.out.println("[END SERVER] " + name + " has finished the server");
                 } else {
                     outgoingMessage = this.formatMessage(name, body).getBytes();
+                    System.out.println("[MESSAGE] " + name + " sent a message to " + getAddressString(body));
                 }
                 forwardMessage(outgoingMessage, address);
 
@@ -82,17 +86,20 @@ public class Server implements Runnable {
     }
 
     private InetAddress getAddressFromMessage(String message) throws UnknownHostException {
+        String ip = getAddressString(message);
+        return InetAddress.getByName(ip);
+    }
+
+    private String getAddressString(String message) throws UnknownHostException {
         String delimiter = "&!%";
         String[] parts = message.trim().split(delimiter);
         if (parts.length > 2) {
-            String ip = parts[2].trim();
-            return InetAddress.getByName(ip);
+            return parts[2].trim();
         }
         else {
             throw new UnknownHostException("Invalid message format: " + message);
         }
     }
-
     private void forwardMessage(byte[] message, InetAddress address) throws IOException {
         DatagramPacket outgoingPacket = new DatagramPacket(
                 message,
