@@ -23,8 +23,6 @@ java nome_do_arquivo.java
 ```
 Vale ressaltar que, para nosso caso, o nome dos arquivos serão "Client.java" e "Server.java"
 
-### 4. Funcionamento
-Explicar funcionamento
 <br/><br/>
 #### Observações
 - É necessário ter git e java instalados na máquina.
