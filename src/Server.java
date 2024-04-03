@@ -49,16 +49,16 @@ public class Server implements Runnable {
                 byte[] outgoingMessage = null;
                 if(body.equals("join-server")){
                     outgoingMessage = this.formatMessage(name, "conectou ao servidor").getBytes();
-                    System.out.println("[CONNECT] " + name + " joined " + getAddressString(body));
+                    System.out.println("[CONNECT] " + name + " joined " + getAddressString(incomingMessage));
                 } else if(body.equals("leave-server")){
                     outgoingMessage = this.formatMessage(name, "desconectou do servidor").getBytes();
-                    System.out.println("[DISCONNECT] " + name + " left " + getAddressString(body));
+                    System.out.println("[DISCONNECT] " + name + " left " + getAddressString(incomingMessage));
                 } else if(body.equals("FINALIZAR SERVIDOR")){
                     outgoingMessage = this.formatMessage(name, "finalizou o servidor").getBytes();
                     System.out.println("[END SERVER] " + name + " has finished the server");
                 } else {
                     outgoingMessage = this.formatMessage(name, body).getBytes();
-                    System.out.println("[MESSAGE] " + name + " sent a message to " + getAddressString(body));
+                    System.out.println("[MESSAGE] " + name + " sent a message to " + getAddressString(incomingMessage));
                 }
                 forwardMessage(outgoingMessage, address);
 
@@ -86,7 +86,7 @@ public class Server implements Runnable {
     }
 
     private InetAddress getAddressFromMessage(String message) throws UnknownHostException {
-        String ip = getAddressString(message);
+        String ip = getAddressString(message).trim();
         return InetAddress.getByName(ip);
     }
 
